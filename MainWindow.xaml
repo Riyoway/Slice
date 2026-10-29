@@ -35,7 +35,7 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <Image Source="Assets/AppIcon.svg" Width="24" Height="24" />
+                <Image Source="Assets/AppIcon.png" Width="24" Height="24" />
                 <TextBlock Text="Slice" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
                 <TextBlock x:Name="FileNameText" Text="No media" Foreground="#7E838C" FontSize="12" VerticalAlignment="Center" />
             </StackPanel>

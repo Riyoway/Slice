@@ -26,7 +26,6 @@
   <ItemGroup>
     <Content Include="Assets\AppIcon.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\AppIcon.png" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Assets\AppIcon.svg" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\Icons\*.svg" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Tools\README.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Tools\*.exe" CopyToOutputDirectory="PreserveNewest" />
