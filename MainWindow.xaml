@@ -1,0 +1,193 @@
+<Window
+    x:Class="Slice.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Slice.Controls"
+    Title="Slice">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop Kind="BaseAlt" />
+    </Window.SystemBackdrop>
+
+    <Grid
+        x:Name="RootGrid"
+        RequestedTheme="Dark"
+        AllowDrop="True"
+        DragOver="RootGrid_DragOver"
+        Drop="RootGrid_Drop"
+        KeyDown="RootGrid_KeyDown"
+        Background="#E80B0C0F">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid
+            x:Name="AppTitleBar"
+            Grid.Row="0"
+            Padding="14,0,144,0"
+            Background="#A60B0C0F">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Image Source="Assets/AppIcon.svg" Width="24" Height="24" />
+                <TextBlock Text="Slice" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock x:Name="FileNameText" Text="No media" Foreground="#7E838C" FontSize="12" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <Button Style="{StaticResource IconButtonStyle}" Click="OpenButton_Click" ToolTipService.ToolTip="Open video (Ctrl+O)">
+                    <Image Source="Assets/Icons/open.svg" Width="18" Height="18" />
+                </Button>
+                <Button
+                    x:Name="ExportButton"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    Click="ExportButton_Click"
+                    IsEnabled="False">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Image Source="Assets/Icons/export.svg" Width="16" Height="16" />
+                        <TextBlock Text="Export" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="16,12,16,10">
+            <Border
+                x:Name="DropSurface"
+                Background="#07080A"
+                BorderBrush="#202329"
+                BorderThickness="1"
+                CornerRadius="12">
+                <Grid>
+                    <MediaPlayerElement
+                        x:Name="PlayerElement"
+                        AreTransportControlsEnabled="False"
+                        Stretch="Uniform"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch" />
+
+                    <StackPanel
+                        x:Name="EmptyState"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="12">
+                        <Border
+                            Width="52"
+                            Height="52"
+                            CornerRadius="14"
+                            Background="#15171B"
+                            BorderBrush="#2A2D33"
+                            BorderThickness="1">
+                            <Image Source="Assets/Icons/open.svg" Width="22" Height="22" />
+                        </Border>
+                        <TextBlock Text="Drop a video here" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock Text="or open a local file" Foreground="#858A93" FontSize="12" HorizontalAlignment="Center" />
+                        <Button Content="Open video" HorizontalAlignment="Center" Click="OpenButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border
+            Grid.Row="2"
+            Background="#111216"
+            BorderBrush="#24272D"
+            BorderThickness="0,1,0,0"
+            Padding="16,12,16,14">
+            <Grid RowSpacing="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal" Spacing="3">
+                        <Button Style="{StaticResource IconButtonStyle}" Click="FrameBackButton_Click" ToolTipService.ToolTip="Previous frame">
+                            <Image Source="Assets/Icons/step-back.svg" Width="17" Height="17" />
+                        </Button>
+                        <Button x:Name="PlayButton" Style="{StaticResource IconButtonStyle}" Click="PlayButton_Click" ToolTipService.ToolTip="Play / pause (Space)">
+                            <Image x:Name="PlayButtonIcon" Source="Assets/Icons/play.svg" Width="18" Height="18" />
+                        </Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Click="FrameForwardButton_Click" ToolTipService.ToolTip="Next frame">
+                            <Image Source="Assets/Icons/step-forward.svg" Width="17" Height="17" />
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock
+                        x:Name="TimeText"
+                        Grid.Column="1"
+                        Text="00:00.000  /  00:00.000"
+                        FontFamily="Cascadia Mono"
+                        FontSize="12"
+                        Foreground="#B8BCC3"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center" />
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Image Source="Assets/Icons/volume.svg" Width="16" Height="16" />
+                        <Slider
+                            x:Name="VolumeSlider"
+                            Width="120"
+                            Minimum="0"
+                            Maximum="100"
+                            Value="100"
+                            ValueChanged="VolumeSlider_ValueChanged" />
+                        <TextBlock x:Name="VolumeText" Text="100%" Width="40" FontSize="12" Foreground="#A2A7AF" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+
+                <controls:TimelineControl
+                    x:Name="Timeline"
+                    Grid.Row="1"
+                    IsEnabled="False" />
+
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Button Style="{StaticResource IconButtonStyle}" Click="MarkInButton_Click" ToolTipService.ToolTip="Mark in (I)">
+                            <Image Source="Assets/Icons/mark-in.svg" Width="18" Height="18" />
+                        </Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Click="MarkOutButton_Click" ToolTipService.ToolTip="Mark out (O)">
+                            <Image Source="Assets/Icons/mark-out.svg" Width="18" Height="18" />
+                        </Button>
+                        <Button x:Name="CutButton" Style="{StaticResource IconButtonStyle}" Click="CutButton_Click" ToolTipService.ToolTip="Remove marked range (Delete)" IsEnabled="False">
+                            <Image Source="Assets/Icons/cut.svg" Width="18" Height="18" />
+                        </Button>
+                        <Button x:Name="UndoButton" Style="{StaticResource IconButtonStyle}" Click="UndoButton_Click" ToolTipService.ToolTip="Undo (Ctrl+Z)" IsEnabled="False">
+                            <Image Source="Assets/Icons/undo.svg" Width="18" Height="18" />
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <TextBlock x:Name="TrimStartText" Text="IN  00:00.000" FontFamily="Cascadia Mono" FontSize="11" Foreground="#858A93" />
+                        <TextBlock Text="•" Foreground="#4E535C" />
+                        <TextBlock x:Name="TrimEndText" Text="OUT  00:00.000" FontFamily="Cascadia Mono" FontSize="11" Foreground="#858A93" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <ProgressBar x:Name="ExportProgress" Width="130" Height="3" Minimum="0" Maximum="1" Value="0" Visibility="Collapsed" />
+                        <TextBlock x:Name="StatusText" Text="Ready" FontSize="11" Foreground="#777C85" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

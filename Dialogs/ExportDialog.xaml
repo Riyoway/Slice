@@ -1,0 +1,66 @@
+<ContentDialog
+    x:Class="Slice.Dialogs.ExportDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Export"
+    PrimaryButtonText="Export"
+    CloseButtonText="Cancel"
+    DefaultButton="Primary">
+    <Grid MinWidth="360" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Spacing="6">
+            <TextBlock Text="Format" FontWeight="SemiBold" />
+            <ComboBox x:Name="FormatBox" SelectedIndex="0" HorizontalAlignment="Stretch">
+                <ComboBoxItem Content="MP4 · H.264" />
+                <ComboBoxItem Content="WebM · VP9" />
+                <ComboBoxItem Content="MKV · H.264" />
+                <ComboBoxItem Content="GIF" />
+                <ComboBoxItem Content="MP3" />
+                <ComboBoxItem Content="WAV" />
+            </ComboBox>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Spacing="6">
+            <TextBlock Text="Resolution" FontWeight="SemiBold" />
+            <ComboBox x:Name="ResolutionBox" SelectedIndex="0" HorizontalAlignment="Stretch">
+                <ComboBoxItem Content="Original" />
+                <ComboBoxItem Content="1080p" />
+                <ComboBoxItem Content="720p" />
+                <ComboBoxItem Content="480p" />
+            </ComboBox>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Spacing="6">
+            <TextBlock Text="Frame rate" FontWeight="SemiBold" />
+            <ComboBox x:Name="FpsBox" SelectedIndex="0" HorizontalAlignment="Stretch">
+                <ComboBoxItem Content="Original" />
+                <ComboBoxItem Content="60 fps" />
+                <ComboBoxItem Content="30 fps" />
+                <ComboBoxItem Content="24 fps" />
+                <ComboBoxItem Content="15 fps" />
+            </ComboBox>
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Spacing="6">
+            <TextBlock Text="Quality" FontWeight="SemiBold" />
+            <ComboBox x:Name="QualityBox" SelectedIndex="1" HorizontalAlignment="Stretch">
+                <ComboBoxItem Content="Small" />
+                <ComboBoxItem Content="Balanced" />
+                <ComboBoxItem Content="High" />
+            </ComboBox>
+        </StackPanel>
+
+        <CheckBox
+            x:Name="FastCopyBox"
+            Grid.Row="4"
+            IsChecked="True"
+            Content="Use lossless stream copy when the edit is compatible" />
+    </Grid>
+</ContentDialog>

@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+Tools/*.exe
+publish/
+artifacts/
+*.zip
+*.msi
+*.exe
+*.log
+!Assets/AppIcon.ico
