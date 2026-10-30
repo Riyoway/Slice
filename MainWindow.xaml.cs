@@ -36,6 +36,9 @@ public sealed partial class MainWindow : Window
         RootGrid.KeyDown += RootGrid_KeyDown;
         OpenButton.Click += OpenButton_Click;
         EmptyOpenButton.Click += OpenButton_Click;
+        ImportModeButton.Click += OpenButton_Click;
+        EditModeButton.Click += EditModeButton_Click;
+        ExportModeButton.Click += ExportButton_Click;
         ThemeToggleButton.Click += ThemeToggleButton_Click;
         ExportButton.Click += ExportButton_Click;
         FrameBackButton.Click += FrameBackButton_Click;
@@ -64,9 +67,13 @@ public sealed partial class MainWindow : Window
 
         Timeline.Session = _session;
         Timeline.SeekRequested += (_, seconds) => SeekTimeline(seconds);
-        Timeline.EditStarted += (_, _) => PushUndo();
-        Timeline.EditChanged += (_, _) => OnTimelineEdited();
-        Timeline.SelectionChanged += (_, _) => RefreshUi();
+        Timeline.EditStarted += (_, _) =>
+        {
+            PlayerElement.MediaPlayer.Pause();
+            PushUndo();
+        };
+        Timeline.EditCompleted += (_, _) => OnTimelineEditCompleted();
+        Timeline.SelectionChanged += (_, _) => RefreshSelectionUi();
 
         _uiTimer.Tick += UiTimer_Tick;
         _uiTimer.Start();
@@ -98,6 +105,12 @@ public sealed partial class MainWindow : Window
             : Windows.UI.Color.FromArgb(255, 66, 66, 66);
 
         Timeline.Refresh();
+    }
+
+    private void EditModeButton_Click(object sender, RoutedEventArgs e)
+    {
+        Timeline.Focus(FocusState.Programmatic);
+        StatusText.Text = "Edit";
     }
 
     private async void OpenButton_Click(object sender, RoutedEventArgs e) => await OpenFileAsync();
@@ -392,10 +405,9 @@ public sealed partial class MainWindow : Window
         RefreshUi();
     }
 
-    private void OnTimelineEdited()
+    private void OnTimelineEditCompleted()
     {
         PlayerElement.MediaPlayer.Pause();
-        Timeline.Refresh();
 
         if (_session.Clips.Count > 0)
             SeekTimeline(Math.Min(_timelinePosition, _session.TimelineDuration));
@@ -434,8 +446,14 @@ public sealed partial class MainWindow : Window
 
     private async void ExportButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_sourceFile is null || _isExporting)
+        if (_isExporting)
             return;
+
+        if (_sourceFile is null)
+        {
+            await ShowErrorAsync("Import media first", "Open or drop a video before exporting.");
+            return;
+        }
 
         if (_session.Clips.Count == 0)
         {
@@ -470,6 +488,9 @@ public sealed partial class MainWindow : Window
 
         _isExporting = true;
         ExportButton.IsEnabled = false;
+        ExportModeButton.IsEnabled = false;
+        ImportModeButton.IsEnabled = false;
+        OpenButton.IsEnabled = false;
         ExportProgress.Visibility = Visibility.Visible;
         ExportProgress.Value = 0;
         StatusText.Text = "Exporting…";
@@ -495,12 +516,21 @@ public sealed partial class MainWindow : Window
         finally
         {
             _isExporting = false;
-            ExportButton.IsEnabled = _sourceFile is not null;
+            ExportButton.IsEnabled = true;
+            ExportModeButton.IsEnabled = true;
+            ImportModeButton.IsEnabled = true;
+            OpenButton.IsEnabled = true;
             ExportProgress.Visibility = Visibility.Collapsed;
         }
     }
 
-    private void RefreshUi()
+    private void RefreshSelectionUi()
+    {
+        UpdateSelectionDetails();
+        UpdateActionState();
+    }
+
+    private void UpdateSelectionDetails()
     {
         ClipCountText.Text = $"{_session.Clips.Count} clip{(_session.Clips.Count == 1 ? string.Empty : "s")}";
 
@@ -516,7 +546,11 @@ public sealed partial class MainWindow : Window
             PropertyInText.Text = "--:--:--:--";
             PropertyOutText.Text = "--:--:--:--";
         }
+    }
 
+    private void RefreshUi()
+    {
+        UpdateSelectionDetails();
         Timeline.Refresh();
         UpdateTimeText();
         UpdateActionState();
@@ -532,7 +566,8 @@ public sealed partial class MainWindow : Window
     {
         SplitButton.IsEnabled = _sourceFile is not null && _session.CanSplitAtTimeline(_timelinePosition);
         DeleteButton.IsEnabled = _sourceFile is not null && _session.SelectedClip is not null;
-        ExportButton.IsEnabled = !_isExporting && _sourceFile is not null && _session.Clips.Count > 0;
+        ExportButton.IsEnabled = !_isExporting;
+        ExportModeButton.IsEnabled = !_isExporting;
     }
 
     private void RootGrid_KeyDown(object sender, KeyRoutedEventArgs e)

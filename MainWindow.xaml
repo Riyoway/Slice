@@ -53,7 +53,7 @@
                 <Button x:Name="OpenButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Open video (Ctrl+O)">
                     <Image Source="Assets/Icons/folder-open.svg" Width="16" Height="16" />
                 </Button>
-                <Button x:Name="ExportButton" Style="{StaticResource PrimaryButtonStyle}" IsEnabled="False">
+                <Button x:Name="ExportButton" Style="{StaticResource PrimaryButtonStyle}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <Image Source="Assets/Icons/download.svg" Width="14" Height="14" />
                         <TextBlock Text="Export" Foreground="White" FontSize="11" />
@@ -64,13 +64,13 @@
 
         <!-- Premiere Import / Edit / Export mode strip -->
         <Grid Grid.Row="1" Background="{ThemeResource PrLayer2Brush}" BorderBrush="{ThemeResource PrBorderBrush}" BorderThickness="0,1,0,1">
-            <StackPanel Orientation="Horizontal" Spacing="28" HorizontalAlignment="Center" VerticalAlignment="Stretch">
-                <TextBlock Text="Import" FontSize="12" Foreground="{ThemeResource PrTextMutedBrush}" VerticalAlignment="Center" />
-                <Grid Width="36">
-                    <TextBlock Text="Edit" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    <Rectangle Height="2" Fill="{ThemeResource PrAccentBrush}" VerticalAlignment="Bottom" />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Stretch">
+                <Button x:Name="ImportModeButton" Style="{StaticResource ModeButtonStyle}" Content="Import" Foreground="{ThemeResource PrTextMutedBrush}" />
+                <Grid Width="56">
+                    <Button x:Name="EditModeButton" Style="{StaticResource ModeButtonStyle}" Content="Edit" FontWeight="SemiBold" />
+                    <Rectangle Height="2" Fill="{ThemeResource PrAccentBrush}" VerticalAlignment="Bottom" IsHitTestVisible="False" />
                 </Grid>
-                <TextBlock Text="Export" FontSize="12" Foreground="{ThemeResource PrTextMutedBrush}" VerticalAlignment="Center" />
+                <Button x:Name="ExportModeButton" Style="{StaticResource ModeButtonStyle}" Content="Export" Foreground="{ThemeResource PrTextMutedBrush}" />
             </StackPanel>
         </Grid>
 

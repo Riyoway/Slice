@@ -26,11 +26,14 @@ public sealed partial class TimelineControl : UserControl
     private uint _pointerId;
     private double _pressX;
     private double _pressTimeline;
+    private double _dragPointerX;
+    private double _grabOffsetInClip;
     private double _dragPixelsPerSecond = 1;
     private double _trimOriginalStart;
     private double _trimOriginalEnd;
     private bool _dragMoved;
     private bool _editStartedForGesture;
+    private bool _gestureChanged;
 
     public TimelineControl()
     {
@@ -40,6 +43,7 @@ public sealed partial class TimelineControl : UserControl
         Surface.PointerMoved += Surface_PointerMoved;
         Surface.PointerReleased += Surface_PointerReleased;
         Surface.PointerCanceled += Surface_PointerCanceled;
+        Surface.PointerCaptureLost += Surface_PointerCaptureLost;
         Surface.SizeChanged += (_, _) => Redraw();
         Ruler.SizeChanged += (_, _) => Redraw();
         ActualThemeChanged += (_, _) => Redraw();
@@ -49,7 +53,7 @@ public sealed partial class TimelineControl : UserControl
 
     public event EventHandler<double>? SeekRequested;
     public event EventHandler? EditStarted;
-    public event EventHandler? EditChanged;
+    public event EventHandler? EditCompleted;
     public event EventHandler? SelectionChanged;
 
     public EditSession? Session
@@ -103,8 +107,11 @@ public sealed partial class TimelineControl : UserControl
         _pointerId = point.PointerId;
         _pressX = x;
         _pressTimeline = LayoutToTimeline(layout, x);
+        _dragPointerX = x;
+        _grabOffsetInClip = x - layout.X;
         _dragMoved = false;
         _editStartedForGesture = false;
+        _gestureChanged = false;
         _trimOriginalStart = clip.SourceStart;
         _trimOriginalEnd = clip.SourceEnd;
         _dragPixelsPerSecond = Math.Max(0.001, layout.Width / Math.Max(clip.Length, 0.001));
@@ -130,6 +137,7 @@ public sealed partial class TimelineControl : UserControl
             return;
 
         var x = Math.Clamp(point.Position.X, 0, Surface.ActualWidth);
+        _dragPointerX = x;
         var deltaX = x - _pressX;
 
         if (_dragMode is DragMode.TrimStart or DragMode.TrimEnd)
@@ -146,15 +154,20 @@ public sealed partial class TimelineControl : UserControl
             if (changed)
             {
                 _dragMoved = true;
-                EditChanged?.Invoke(this, EventArgs.Empty);
+                _gestureChanged = true;
                 Redraw();
             }
 
             return;
         }
 
-        if (_dragMode == DragMode.MoveOrSeek && point.Properties.IsLeftButtonPressed)
+        if (_dragMode == DragMode.MoveOrSeek)
         {
+            // With a single clip, body gestures are seeks. There is nothing to reorder,
+            // so small pointer drift must never turn a click into a fake drag.
+            if (_session.Clips.Count <= 1)
+                return;
+
             if (!_dragMoved && Math.Abs(deltaX) < DragThreshold)
                 return;
 
@@ -164,30 +177,51 @@ public sealed partial class TimelineControl : UserControl
             var currentIndex = _session.SelectedIndex;
 
             if (targetIndex != currentIndex && _session.MoveClip(currentIndex, targetIndex))
-            {
-                EditChanged?.Invoke(this, EventArgs.Empty);
-                SelectionChanged?.Invoke(this, EventArgs.Empty);
-                Redraw();
-            }
+                _gestureChanged = true;
+
+            Redraw();
         }
     }
 
     private void Surface_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        if (e.GetCurrentPoint(Surface).PointerId != _pointerId)
+        var releasedPoint = e.GetCurrentPoint(Surface);
+        if (releasedPoint.PointerId != _pointerId)
             return;
 
         if (_dragMode == DragMode.MoveOrSeek && !_dragMoved)
             SeekRequested?.Invoke(this, _pressTimeline);
 
+        var changed = _gestureChanged;
         EndPointer(e.Pointer);
+        if (changed)
+        {
+            EditCompleted?.Invoke(this, EventArgs.Empty);
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }
         e.Handled = true;
     }
 
     private void Surface_PointerCanceled(object sender, PointerRoutedEventArgs e)
     {
-        if (e.GetCurrentPoint(Surface).PointerId == _pointerId)
-            EndPointer(e.Pointer);
+        if (e.GetCurrentPoint(Surface).PointerId != _pointerId)
+            return;
+
+        var changed = _gestureChanged;
+        EndPointer(e.Pointer);
+        if (changed)
+            EditCompleted?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void Surface_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        if (_dragMode == DragMode.None)
+            return;
+
+        var changed = _gestureChanged;
+        ResetPointerState();
+        if (changed)
+            EditCompleted?.Invoke(this, EventArgs.Empty);
     }
 
     private void BeginEditOnce()
@@ -201,11 +235,19 @@ public sealed partial class TimelineControl : UserControl
 
     private void EndPointer(Pointer pointer)
     {
+        // Reset first: ReleasePointerCapture synchronously raises PointerCaptureLost.
+        // This keeps completion from firing twice for the same gesture.
+        ResetPointerState();
         Surface.ReleasePointerCapture(pointer);
+    }
+
+    private void ResetPointerState()
+    {
         _dragMode = DragMode.None;
         _pointerId = 0;
         _dragMoved = false;
         _editStartedForGesture = false;
+        _gestureChanged = false;
     }
 
     private void Redraw()
@@ -236,13 +278,14 @@ public sealed partial class TimelineControl : UserControl
             var clip = _session.Clips[layout.Index];
             var label = $"{MediaName}  [{layout.Index + 1}]";
 
-            DrawClipRow(layout, clip, selected, 2, Math.Max(1, trackHeight - 4), videoColor, label);
-            DrawClipRow(layout, clip, selected, trackHeight + 2, Math.Max(1, trackHeight - 4), audioColor, label);
+            var visualX = GetVisualX(layout, selected);
+            DrawClipRow(layout with { X = visualX }, clip, selected, 2, Math.Max(1, trackHeight - 4), videoColor, label);
+            DrawClipRow(layout with { X = visualX }, clip, selected, trackHeight + 2, Math.Max(1, trackHeight - 4), audioColor, label);
 
             if (selected)
             {
-                AddTrimHandle(layout.X, Surface.ActualHeight);
-                AddTrimHandle(layout.X + layout.Width, Surface.ActualHeight);
+                AddTrimHandle(visualX, Surface.ActualHeight);
+                AddTrimHandle(visualX + layout.Width, Surface.ActualHeight);
             }
         }
 
@@ -356,6 +399,14 @@ public sealed partial class TimelineControl : UserControl
         Surface.Children.Add(handle);
     }
 
+    private double GetVisualX(ClipLayout layout, bool selected)
+    {
+        if (!selected || _dragMode != DragMode.MoveOrSeek || !_dragMoved)
+            return layout.X;
+
+        return Math.Clamp(_dragPointerX - _grabOffsetInClip, TrackPadding, Math.Max(TrackPadding, Surface.ActualWidth - TrackPadding - layout.Width));
+    }
+
     private bool IsLightTheme => ActualTheme == ElementTheme.Light;
     private Color AccentColor => IsLightTheme ? Color.FromArgb(255, 2, 101, 220) : Color.FromArgb(255, 94, 170, 247);
     private Color SelectionColor => IsLightTheme ? Color.FromArgb(255, 2, 101, 220) : Color.FromArgb(255, 114, 183, 249);
@@ -422,8 +473,21 @@ public sealed partial class TimelineControl : UserControl
         }
     }
 
-    private ClipLayout? HitLayout(double x) =>
-        _layouts.FirstOrDefault(layout => x >= layout.X && x <= layout.X + layout.Width);
+    private ClipLayout? HitLayout(double x)
+    {
+        if (_session is not null && _session.SelectedIndex >= 0)
+        {
+            var selected = _layouts.FirstOrDefault(layout => layout.Index == _session.SelectedIndex);
+            if (selected is not null &&
+                x >= selected.X - HandleHitWidth &&
+                x <= selected.X + selected.Width + HandleHitWidth)
+            {
+                return selected;
+            }
+        }
+
+        return _layouts.FirstOrDefault(layout => x >= layout.X && x <= layout.X + layout.Width);
+    }
 
     private int GetReorderTarget(double x)
     {
