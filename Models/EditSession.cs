@@ -2,110 +2,192 @@ namespace Slice.Models;
 
 public sealed class EditSession
 {
+    public const double MinimumClipDuration = 0.05;
+
     public double Duration { get; private set; }
-    public double TrimStart { get; set; }
-    public double TrimEnd { get; set; }
-    public double? MarkIn { get; set; }
-    public double? MarkOut { get; set; }
-    public List<TimeRange> Cuts { get; } = [];
+    public List<ClipSegment> Clips { get; } = [];
+    public int SelectedIndex { get; private set; } = -1;
+
+    public double TimelineDuration => Clips.Sum(clip => clip.Length);
+
+    public ClipSegment? SelectedClip =>
+        SelectedIndex >= 0 && SelectedIndex < Clips.Count ? Clips[SelectedIndex] : null;
 
     public void Reset(double duration)
     {
         Duration = Math.Max(0, duration);
-        TrimStart = 0;
-        TrimEnd = Duration;
-        MarkIn = null;
-        MarkOut = null;
-        Cuts.Clear();
+        Clips.Clear();
+
+        if (Duration > 0)
+        {
+            Clips.Add(new ClipSegment(Guid.NewGuid(), 0, Duration));
+            SelectedIndex = 0;
+        }
+        else
+        {
+            SelectedIndex = -1;
+        }
     }
 
     public EditSessionSnapshot Snapshot() => new(
         Duration,
-        TrimStart,
-        TrimEnd,
-        MarkIn,
-        MarkOut,
-        Cuts.ToArray());
+        SelectedIndex,
+        Clips.Select(clip => new ClipSegmentSnapshot(clip.Id, clip.SourceStart, clip.SourceEnd)).ToArray());
 
     public void Restore(EditSessionSnapshot snapshot)
     {
         Duration = snapshot.Duration;
-        TrimStart = snapshot.TrimStart;
-        TrimEnd = snapshot.TrimEnd;
-        MarkIn = snapshot.MarkIn;
-        MarkOut = snapshot.MarkOut;
-        Cuts.Clear();
-        Cuts.AddRange(snapshot.Cuts);
+        Clips.Clear();
+        Clips.AddRange(snapshot.Clips.Select(clip => new ClipSegment(clip.Id, clip.SourceStart, clip.SourceEnd)));
+        SelectedIndex = Clips.Count == 0 ? -1 : Math.Clamp(snapshot.SelectedIndex, 0, Clips.Count - 1);
     }
 
-    public void AddCut(double start, double end)
+    public void SelectClip(int index)
     {
-        var range = new TimeRange(
-            Math.Clamp(Math.Min(start, end), TrimStart, TrimEnd),
-            Math.Clamp(Math.Max(start, end), TrimStart, TrimEnd));
-
-        if (range.Length < 0.01)
-            return;
-
-        Cuts.Add(range);
-        MergeCuts();
-        MarkIn = null;
-        MarkOut = null;
+        SelectedIndex = index >= 0 && index < Clips.Count ? index : -1;
     }
 
-    public IReadOnlyList<TimeRange> GetKeepRanges()
+    public bool CanSplitAtTimeline(double timelinePosition)
     {
-        var result = new List<TimeRange>();
-        var cursor = TrimStart;
+        if (!TryGetClipAtTimeline(timelinePosition, out _, out var clip, out var localTime, out _))
+            return false;
 
-        foreach (var cut in Cuts.OrderBy(x => x.Start))
+        return localTime > MinimumClipDuration && localTime < clip.Length - MinimumClipDuration;
+    }
+
+    public bool SplitAtTimeline(double timelinePosition)
+    {
+        if (!TryGetClipAtTimeline(timelinePosition, out var index, out var clip, out var localTime, out _))
+            return false;
+
+        if (localTime <= MinimumClipDuration || localTime >= clip.Length - MinimumClipDuration)
+            return false;
+
+        var splitSourceTime = clip.SourceStart + localTime;
+        Clips[index] = new ClipSegment(clip.Id, clip.SourceStart, splitSourceTime);
+        Clips.Insert(index + 1, new ClipSegment(Guid.NewGuid(), splitSourceTime, clip.SourceEnd));
+        SelectedIndex = index + 1;
+        return true;
+    }
+
+    public bool DeleteSelected()
+    {
+        if (SelectedIndex < 0 || SelectedIndex >= Clips.Count)
+            return false;
+
+        var index = SelectedIndex;
+        Clips.RemoveAt(index);
+        SelectedIndex = Clips.Count == 0 ? -1 : Math.Min(index, Clips.Count - 1);
+        return true;
+    }
+
+    public bool MoveClip(int fromIndex, int toIndex)
+    {
+        if (fromIndex < 0 || fromIndex >= Clips.Count || Clips.Count <= 1)
+            return false;
+
+        toIndex = Math.Clamp(toIndex, 0, Clips.Count - 1);
+        if (fromIndex == toIndex)
+            return false;
+
+        var clip = Clips[fromIndex];
+        Clips.RemoveAt(fromIndex);
+        toIndex = Math.Clamp(toIndex, 0, Clips.Count);
+        Clips.Insert(toIndex, clip);
+        SelectedIndex = toIndex;
+        return true;
+    }
+
+    public bool TrimClipStart(int index, double sourceStart)
+    {
+        if (index < 0 || index >= Clips.Count)
+            return false;
+
+        var clip = Clips[index];
+        var next = Math.Clamp(sourceStart, 0, clip.SourceEnd - MinimumClipDuration);
+        if (Math.Abs(next - clip.SourceStart) < 0.0001)
+            return false;
+
+        clip.SourceStart = next;
+        return true;
+    }
+
+    public bool TrimClipEnd(int index, double sourceEnd)
+    {
+        if (index < 0 || index >= Clips.Count)
+            return false;
+
+        var clip = Clips[index];
+        var next = Math.Clamp(sourceEnd, clip.SourceStart + MinimumClipDuration, Duration);
+        if (Math.Abs(next - clip.SourceEnd) < 0.0001)
+            return false;
+
+        clip.SourceEnd = next;
+        return true;
+    }
+
+    public bool TryGetClipAtTimeline(
+        double timelinePosition,
+        out int index,
+        out ClipSegment clip,
+        out double localTime,
+        out double clipTimelineStart)
+    {
+        index = -1;
+        clip = null!;
+        localTime = 0;
+        clipTimelineStart = 0;
+
+        if (Clips.Count == 0 || TimelineDuration <= 0)
+            return false;
+
+        var clamped = Math.Clamp(timelinePosition, 0, TimelineDuration);
+        var cursor = 0d;
+
+        for (var i = 0; i < Clips.Count; i++)
         {
-            var start = Math.Clamp(cut.Start, TrimStart, TrimEnd);
-            var end = Math.Clamp(cut.End, TrimStart, TrimEnd);
-            if (end <= TrimStart || start >= TrimEnd)
-                continue;
-
-            if (start > cursor)
-                result.Add(new TimeRange(cursor, start));
-
-            cursor = Math.Max(cursor, end);
-        }
-
-        if (cursor < TrimEnd)
-            result.Add(new TimeRange(cursor, TrimEnd));
-
-        return result.Where(x => x.Length >= 0.01).ToArray();
-    }
-
-    private void MergeCuts()
-    {
-        if (Cuts.Count <= 1)
-            return;
-
-        var ordered = Cuts.OrderBy(x => x.Start).ToArray();
-        Cuts.Clear();
-        var current = ordered[0];
-
-        for (var i = 1; i < ordered.Length; i++)
-        {
-            var next = ordered[i];
-            if (next.Start <= current.End + 0.001)
-                current = new TimeRange(current.Start, Math.Max(current.End, next.End));
-            else
+            var current = Clips[i];
+            var end = cursor + current.Length;
+            if (clamped < end - 0.0001 || i == Clips.Count - 1)
             {
-                Cuts.Add(current);
-                current = next;
+                index = i;
+                clip = current;
+                localTime = Math.Clamp(clamped - cursor, 0, current.Length);
+                clipTimelineStart = cursor;
+                return true;
             }
+
+            cursor = end;
         }
 
-        Cuts.Add(current);
+        return false;
     }
+
+    public double GetClipTimelineStart(int index)
+    {
+        if (index <= 0)
+            return 0;
+
+        return Clips.Take(Math.Min(index, Clips.Count)).Sum(clip => clip.Length);
+    }
+
+    public IReadOnlyList<TimeRange> GetKeepRanges() =>
+        Clips.Where(clip => clip.Length >= MinimumClipDuration)
+            .Select(clip => new TimeRange(clip.SourceStart, clip.SourceEnd))
+            .ToArray();
 }
+
+public sealed class ClipSegment(Guid id, double sourceStart, double sourceEnd)
+{
+    public Guid Id { get; } = id;
+    public double SourceStart { get; set; } = sourceStart;
+    public double SourceEnd { get; set; } = sourceEnd;
+    public double Length => Math.Max(0, SourceEnd - SourceStart);
+}
+
+public sealed record ClipSegmentSnapshot(Guid Id, double SourceStart, double SourceEnd);
 
 public sealed record EditSessionSnapshot(
     double Duration,
-    double TrimStart,
-    double TrimEnd,
-    double? MarkIn,
-    double? MarkOut,
-    TimeRange[] Cuts);
+    int SelectedIndex,
+    ClipSegmentSnapshot[] Clips);

@@ -23,13 +23,13 @@ public sealed partial class MainWindow : Window
     private StorageFile? _sourceFile;
     private MediaInfo? _mediaInfo;
     private bool _isExporting;
+    private double _timelinePosition;
+    private int _activeClipIndex = -1;
 
     public MainWindow()
     {
         InitializeComponent();
 
-        // Wire UI events in code. This avoids WinUI runtime XAML event-binding failures
-        // in unpackaged/self-contained builds while keeping the XAML purely declarative.
         RootGrid.DragOver += RootGrid_DragOver;
         RootGrid.Drop += RootGrid_Drop;
         RootGrid.KeyDown += RootGrid_KeyDown;
@@ -40,14 +40,13 @@ public sealed partial class MainWindow : Window
         PlayButton.Click += PlayButton_Click;
         FrameForwardButton.Click += FrameForwardButton_Click;
         VolumeSlider.ValueChanged += VolumeSlider_ValueChanged;
-        MarkInButton.Click += MarkInButton_Click;
-        MarkOutButton.Click += MarkOutButton_Click;
-        CutButton.Click += CutButton_Click;
+        SplitButton.Click += SplitButton_Click;
+        DeleteButton.Click += DeleteButton_Click;
         UndoButton.Click += UndoButton_Click;
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 760));
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 790));
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
 
         PlayerElement.SetMediaPlayer(new MediaPlayer
@@ -61,9 +60,10 @@ public sealed partial class MainWindow : Window
         PlayerElement.MediaPlayer.PlaybackSession.PlaybackStateChanged += PlaybackSession_PlaybackStateChanged;
 
         Timeline.Session = _session;
-        Timeline.SeekRequested += (_, seconds) => Seek(seconds);
-        Timeline.EditStarted += (_, _) => BeginTimelineEdit();
-        Timeline.TrimChanged += (_, _) => OnTimelineTrimChanged();
+        Timeline.SeekRequested += (_, seconds) => SeekTimeline(seconds);
+        Timeline.EditStarted += (_, _) => PushUndo();
+        Timeline.EditChanged += (_, _) => OnTimelineEdited();
+        Timeline.SelectionChanged += (_, _) => RefreshUi();
 
         _uiTimer.Tick += UiTimer_Tick;
         _uiTimer.Start();
@@ -122,13 +122,13 @@ public sealed partial class MainWindow : Window
             _mediaInfo = await MediaProbeService.ProbeAsync(file.Path);
             _undo.Clear();
             UndoButton.IsEnabled = false;
+            _timelinePosition = 0;
+            _activeClipIndex = -1;
 
-            if (_mediaInfo is not null && _mediaInfo.Duration > 0)
-                _session.Reset(_mediaInfo.Duration);
-            else
-                _session.Reset(0);
-
+            _session.Reset(_mediaInfo is { Duration: > 0 } ? _mediaInfo.Duration : 0);
             Timeline.Refresh();
+            Timeline.Playhead = 0;
+
             PlayerElement.MediaPlayer.Source = MediaSource.CreateFromStorageFile(file);
             FileNameText.Text = file.Name;
             EmptyState.Visibility = Visibility.Collapsed;
@@ -152,9 +152,13 @@ public sealed partial class MainWindow : Window
             {
                 _session.Reset(natural);
                 _mediaInfo ??= new MediaInfo(natural, true, true, 0, 0, 0);
-                Timeline.Refresh();
-                RefreshUi();
             }
+
+            _timelinePosition = 0;
+            _activeClipIndex = _session.Clips.Count > 0 ? 0 : -1;
+            Timeline.Playhead = 0;
+            Timeline.Refresh();
+            RefreshUi();
         });
     }
 
@@ -172,7 +176,7 @@ public sealed partial class MainWindow : Window
 
     private void TogglePlayback()
     {
-        if (_sourceFile is null)
+        if (_sourceFile is null || _session.Clips.Count == 0)
             return;
 
         var player = PlayerElement.MediaPlayer;
@@ -182,66 +186,90 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var position = player.PlaybackSession.Position.TotalSeconds;
-        if (position < _session.TrimStart || position >= _session.TrimEnd - 0.01)
-            Seek(_session.TrimStart);
+        if (_timelinePosition >= _session.TimelineDuration - 0.001)
+            SeekTimeline(0);
         else
-            SeekPastCutsIfNeeded(position);
+            SeekTimeline(_timelinePosition);
 
         player.Play();
     }
 
     private void UiTimer_Tick(object? sender, object e)
     {
-        if (_sourceFile is null)
+        if (_sourceFile is null || _session.Clips.Count == 0)
             return;
 
         var player = PlayerElement.MediaPlayer;
-        var position = player.PlaybackSession.Position.TotalSeconds;
-
         if (player.PlaybackSession.PlaybackState == MediaPlaybackState.Playing)
         {
-            if (position >= _session.TrimEnd)
+            if (_activeClipIndex < 0 || _activeClipIndex >= _session.Clips.Count)
             {
-                player.Pause();
-                Seek(_session.TrimStart);
-                position = _session.TrimStart;
+                if (_session.TryGetClipAtTimeline(_timelinePosition, out var mappedIndex, out _, out _, out _))
+                    _activeClipIndex = mappedIndex;
             }
-            else
+
+            if (_activeClipIndex >= 0 && _activeClipIndex < _session.Clips.Count)
             {
-                var jumped = SeekPastCutsIfNeeded(position);
-                if (jumped is double newPosition)
-                    position = newPosition;
+                var clip = _session.Clips[_activeClipIndex];
+                var sourcePosition = player.PlaybackSession.Position.TotalSeconds;
+
+                if (sourcePosition >= clip.SourceEnd - 0.012)
+                {
+                    if (_activeClipIndex + 1 < _session.Clips.Count)
+                    {
+                        _activeClipIndex++;
+                        var next = _session.Clips[_activeClipIndex];
+                        _timelinePosition = _session.GetClipTimelineStart(_activeClipIndex);
+                        player.PlaybackSession.Position = TimeSpan.FromSeconds(next.SourceStart);
+                    }
+                    else
+                    {
+                        _timelinePosition = _session.TimelineDuration;
+                        player.Pause();
+                    }
+                }
+                else
+                {
+                    var local = Math.Clamp(sourcePosition - clip.SourceStart, 0, clip.Length);
+                    _timelinePosition = _session.GetClipTimelineStart(_activeClipIndex) + local;
+                }
             }
         }
 
-        Timeline.Playhead = position;
-        TimeText.Text = $"{FormatTime(position)}  /  {FormatTime(_session.Duration)}";
+        Timeline.Playhead = _timelinePosition;
+        UpdateTimeText();
+        UpdateActionState();
     }
 
-    private double? SeekPastCutsIfNeeded(double position)
+    private void SeekTimeline(double timelineSeconds)
     {
-        foreach (var cut in _session.Cuts)
-        {
-            if (position >= cut.Start - 0.01 && position < cut.End - 0.01)
-            {
-                Seek(Math.Min(cut.End, _session.TrimEnd));
-                return cut.End;
-            }
-        }
-
-        return null;
-    }
-
-    private void Seek(double seconds)
-    {
-        if (_sourceFile is null)
+        if (_sourceFile is null || _session.Clips.Count == 0)
             return;
 
-        var clamped = Math.Clamp(seconds, 0, Math.Max(_session.Duration, 0));
-        PlayerElement.MediaPlayer.PlaybackSession.Position = TimeSpan.FromSeconds(clamped);
+        var total = _session.TimelineDuration;
+        var clamped = Math.Clamp(timelineSeconds, 0, total);
+        double sourceTime;
+
+        if (clamped >= total - 0.0001)
+        {
+            _activeClipIndex = _session.Clips.Count - 1;
+            sourceTime = _session.Clips[^1].SourceEnd;
+        }
+        else if (_session.TryGetClipAtTimeline(clamped, out var index, out var clip, out var localTime, out _))
+        {
+            _activeClipIndex = index;
+            sourceTime = clip.SourceStart + localTime;
+        }
+        else
+        {
+            return;
+        }
+
+        _timelinePosition = clamped;
+        PlayerElement.MediaPlayer.PlaybackSession.Position = TimeSpan.FromSeconds(sourceTime);
         Timeline.Playhead = clamped;
-        TimeText.Text = $"{FormatTime(clamped)}  /  {FormatTime(_session.Duration)}";
+        UpdateTimeText();
+        UpdateActionState();
     }
 
     private void FrameBackButton_Click(object sender, RoutedEventArgs e) => StepFrame(-1);
@@ -249,48 +277,58 @@ public sealed partial class MainWindow : Window
 
     private void StepFrame(int direction)
     {
-        if (_sourceFile is null)
+        if (_sourceFile is null || _session.Clips.Count == 0)
             return;
 
         PlayerElement.MediaPlayer.Pause();
         var fps = _mediaInfo?.FrameRate > 0 ? _mediaInfo.FrameRate : 30;
-        var position = PlayerElement.MediaPlayer.PlaybackSession.Position.TotalSeconds;
-        Seek(position + direction / fps);
+        SeekTimeline(_timelinePosition + direction / fps);
     }
 
-    private void MarkInButton_Click(object sender, RoutedEventArgs e) => MarkIn();
-    private void MarkOutButton_Click(object sender, RoutedEventArgs e) => MarkOut();
+    private void SplitButton_Click(object sender, RoutedEventArgs e) => SplitAtPlayhead();
 
-    private void MarkIn()
+    private void SplitAtPlayhead()
     {
-        if (_sourceFile is null)
-            return;
-        _session.MarkIn = Math.Clamp(PlayerElement.MediaPlayer.PlaybackSession.Position.TotalSeconds, _session.TrimStart, _session.TrimEnd);
-        Timeline.Refresh();
-        RefreshCutState();
-    }
-
-    private void MarkOut()
-    {
-        if (_sourceFile is null)
-            return;
-        _session.MarkOut = Math.Clamp(PlayerElement.MediaPlayer.PlaybackSession.Position.TotalSeconds, _session.TrimStart, _session.TrimEnd);
-        Timeline.Refresh();
-        RefreshCutState();
-    }
-
-    private void CutButton_Click(object sender, RoutedEventArgs e) => CutMarkedRange();
-
-    private void CutMarkedRange()
-    {
-        if (_session.MarkIn is not double markIn || _session.MarkOut is not double markOut)
+        if (_sourceFile is null || !_session.CanSplitAtTimeline(_timelinePosition))
             return;
 
         PushUndo();
-        _session.AddCut(markIn, markOut);
+        if (!_session.SplitAtTimeline(_timelinePosition))
+            return;
+
         Timeline.Refresh();
-        RefreshCutState();
-        StatusText.Text = $"{_session.Cuts.Count} cut{(_session.Cuts.Count == 1 ? string.Empty : "s")}";
+        SeekTimeline(_timelinePosition);
+        StatusText.Text = "Clip split";
+        RefreshUi();
+    }
+
+    private void DeleteButton_Click(object sender, RoutedEventArgs e) => DeleteSelectedClip();
+
+    private void DeleteSelectedClip()
+    {
+        if (_sourceFile is null || _session.SelectedClip is null)
+            return;
+
+        var selectedStart = _session.GetClipTimelineStart(_session.SelectedIndex);
+        PushUndo();
+        if (!_session.DeleteSelected())
+            return;
+
+        PlayerElement.MediaPlayer.Pause();
+        Timeline.Refresh();
+
+        if (_session.Clips.Count > 0)
+            SeekTimeline(Math.Min(selectedStart, _session.TimelineDuration));
+        else
+        {
+            _activeClipIndex = -1;
+            _timelinePosition = 0;
+            Timeline.Playhead = 0;
+            UpdateTimeText();
+        }
+
+        StatusText.Text = "Clip deleted";
+        RefreshUi();
     }
 
     private void UndoButton_Click(object sender, RoutedEventArgs e) => Undo();
@@ -300,24 +338,39 @@ public sealed partial class MainWindow : Window
         if (_undo.Count == 0)
             return;
 
+        PlayerElement.MediaPlayer.Pause();
         _session.Restore(_undo.Pop());
         UndoButton.IsEnabled = _undo.Count > 0;
         Timeline.Refresh();
-        RefreshUi();
+
+        if (_session.Clips.Count > 0)
+            SeekTimeline(Math.Min(_timelinePosition, _session.TimelineDuration));
+        else
+        {
+            _activeClipIndex = -1;
+            _timelinePosition = 0;
+            Timeline.Playhead = 0;
+        }
+
         StatusText.Text = "Undo";
+        RefreshUi();
     }
 
-    private void BeginTimelineEdit() => PushUndo();
-
-    private void OnTimelineTrimChanged()
+    private void OnTimelineEdited()
     {
-        if (PlayerElement.MediaPlayer.PlaybackSession.Position.TotalSeconds < _session.TrimStart)
-            Seek(_session.TrimStart);
-        else if (PlayerElement.MediaPlayer.PlaybackSession.Position.TotalSeconds > _session.TrimEnd)
-            Seek(_session.TrimEnd);
+        PlayerElement.MediaPlayer.Pause();
+        Timeline.Refresh();
 
-        _session.MarkIn = _session.MarkIn is double i ? Math.Clamp(i, _session.TrimStart, _session.TrimEnd) : null;
-        _session.MarkOut = _session.MarkOut is double o ? Math.Clamp(o, _session.TrimStart, _session.TrimEnd) : null;
+        if (_session.Clips.Count > 0)
+            SeekTimeline(Math.Min(_timelinePosition, _session.TimelineDuration));
+        else
+        {
+            _activeClipIndex = -1;
+            _timelinePosition = 0;
+            Timeline.Playhead = 0;
+        }
+
+        StatusText.Text = "Edited";
         RefreshUi();
     }
 
@@ -331,6 +384,7 @@ public sealed partial class MainWindow : Window
             foreach (var item in newest)
                 _undo.Push(item);
         }
+
         UndoButton.IsEnabled = true;
     }
 
@@ -346,6 +400,12 @@ public sealed partial class MainWindow : Window
     {
         if (_sourceFile is null || _isExporting)
             return;
+
+        if (_session.Clips.Count == 0)
+        {
+            await ShowErrorAsync("Nothing to export", "The timeline is empty. Undo a deletion or open another video.");
+            return;
+        }
 
         if (_mediaInfo is null)
         {
@@ -406,17 +466,33 @@ public sealed partial class MainWindow : Window
 
     private void RefreshUi()
     {
-        TrimStartText.Text = $"IN  {FormatTime(_session.TrimStart)}";
-        TrimEndText.Text = $"OUT  {FormatTime(_session.TrimEnd)}";
-        RefreshCutState();
+        ClipCountText.Text = $"{_session.Clips.Count} clip{(_session.Clips.Count == 1 ? string.Empty : "s")}";
+
+        if (_session.SelectedClip is { } clip && _session.SelectedIndex >= 0)
+        {
+            SelectedClipText.Text =
+                $"Clip {_session.SelectedIndex + 1}  ·  {FormatTime(clip.SourceStart)} — {FormatTime(clip.SourceEnd)}";
+        }
+        else
+        {
+            SelectedClipText.Text = "No clip selected";
+        }
+
         Timeline.Refresh();
+        UpdateTimeText();
+        UpdateActionState();
     }
 
-    private void RefreshCutState()
+    private void UpdateTimeText()
     {
-        CutButton.IsEnabled = _session.MarkIn is not null &&
-                              _session.MarkOut is not null &&
-                              Math.Abs(_session.MarkIn.Value - _session.MarkOut.Value) >= 0.01;
+        TimeText.Text = $"{FormatTime(_timelinePosition)}  /  {FormatTime(_session.TimelineDuration)}";
+    }
+
+    private void UpdateActionState()
+    {
+        SplitButton.IsEnabled = _sourceFile is not null && _session.CanSplitAtTimeline(_timelinePosition);
+        DeleteButton.IsEnabled = _sourceFile is not null && _session.SelectedClip is not null;
+        ExportButton.IsEnabled = !_isExporting && _sourceFile is not null && _session.Clips.Count > 0;
     }
 
     private void RootGrid_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -439,19 +515,14 @@ public sealed partial class MainWindow : Window
             TogglePlayback();
             e.Handled = true;
         }
-        else if (e.Key == VirtualKey.I)
+        else if (e.Key == VirtualKey.S)
         {
-            MarkIn();
-            e.Handled = true;
-        }
-        else if (e.Key == VirtualKey.O)
-        {
-            MarkOut();
+            SplitAtPlayhead();
             e.Handled = true;
         }
         else if (e.Key == VirtualKey.Delete)
         {
-            CutMarkedRange();
+            DeleteSelectedClip();
             e.Handled = true;
         }
     }

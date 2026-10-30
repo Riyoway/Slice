@@ -5,7 +5,7 @@
 <h1 align="center">Slice</h1>
 
 <p align="center">
-  A lightweight Windows video trimmer for fast cuts, simple volume control, and flexible export.
+  A lightweight Windows video trimmer with a focused single-track timeline and flexible export.
 </p>
 
 <p align="center">
@@ -17,20 +17,20 @@
 
 ## What is Slice?
 
-Slice is intentionally small. It is not a full nonlinear editor and it does not try to become one.
+Slice is intentionally focused. It gives you the timeline interactions you expect for quick video edits without layers, effects, accounts, cloud features, or a large editing workspace.
 
-Open a video, trim the edges, remove unwanted ranges, adjust volume, preview the result, and export.
-
-No account. No cloud. No timeline layers. No effects library. No AI features.
+Open a video, split it into clips, trim clip edges, drag clips into a new order, remove clips, adjust volume, preview the sequence, and export.
 
 ## Features
 
 - Native Windows video preview
 - Drag and drop video opening
-- Single lightweight timeline
-- Direct left and right trim handles
-- Mark in / mark out cutting
-- Edit-aware preview that skips removed ranges
+- Single-track clip timeline
+- Split at the playhead
+- Direct per-clip edge trimming
+- Drag-and-drop clip reordering
+- Selected clip deletion
+- Preview follows the edited clip order
 - Frame stepping
 - Master volume control
 - Undo support
@@ -39,21 +39,24 @@ No account. No cloud. No timeline layers. No effects library. No AI features.
 - Original, 60, 30, 24, and 15 FPS presets
 - Small, Balanced, and High quality presets
 - Lossless stream copy when the edit allows it
-- SVG interface icons
+- Lucide SVG interface icons
 - No telemetry or sign-in
 
-## Screens and controls
+## Timeline controls
 
-| Action | Shortcut |
+| Action | Control |
 | --- | --- |
-| Open video | `Ctrl + O` |
-| Play / pause | `Space` |
-| Mark in | `I` |
-| Mark out | `O` |
-| Remove marked range | `Delete` |
+| Seek | Click a clip on the timeline |
+| Split | Press `S` or use the scissors button |
+| Trim | Drag the left or right edge of a clip |
+| Reorder | Drag a clip left or right |
+| Delete clip | Select a clip and press `Delete` |
 | Undo | `Ctrl + Z` |
-| Seek | Click or drag the timeline |
-| Trim | Drag either timeline edge |
+| Play / pause | `Space` |
+| Previous / next frame | Playback toolbar buttons |
+| Open video | `Ctrl + O` |
+
+The timeline represents the final export order. Reordering clips changes both preview playback and export order.
 
 ## Tech stack
 
@@ -62,6 +65,12 @@ No account. No cloud. No timeline layers. No effects library. No AI features.
 - WinUI 3 / Windows App SDK
 - Windows `MediaPlayerElement`
 - FFmpeg and FFprobe for media processing
+
+## Interface icons
+
+Interface icons come from [Lucide](https://lucide.dev/) and are stored as SVG files. Slice does not use custom-drawn toolbar icons.
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the Lucide license notice.
 
 ## FFmpeg
 
@@ -124,10 +133,10 @@ artifacts/installer/Slice-Setup-x64.exe
 
 ```text
 Slice/
-├─ Assets/             App and interface icons
+├─ Assets/             App assets and Lucide SVG interface icons
 ├─ Controls/           Timeline control
 ├─ Dialogs/            Export UI
-├─ Models/             Edit and export models
+├─ Models/             Clip timeline and export models
 ├─ Services/           FFmpeg probing and export
 ├─ Tools/              Optional local FFmpeg binaries
 ├─ MainWindow.xaml     Main UI
@@ -140,10 +149,10 @@ Slice should stay focused on four things:
 
 **Trim. Cut. Volume. Export.**
 
-Features that turn it into a conventional full video editor are intentionally out of scope.
+The goal is a fast single-track workflow, not a full multi-track nonlinear editor.
 
 ## License
 
 Slice is released under the [MIT License](LICENSE).
 
-FFmpeg is a separate project and is distributed under its own licenses.
+FFmpeg and Lucide are separate projects and are distributed under their own licenses.

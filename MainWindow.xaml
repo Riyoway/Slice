@@ -44,14 +44,14 @@
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                 <Button x:Name="OpenButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Open video (Ctrl+O)">
-                    <Image Source="Assets/Icons/open.svg" Width="18" Height="18" />
+                    <Image Source="Assets/Icons/folder-open.svg" Width="18" Height="18" />
                 </Button>
                 <Button
                     x:Name="ExportButton"
                     Style="{StaticResource PrimaryButtonStyle}"
                     IsEnabled="False">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Image Source="Assets/Icons/export.svg" Width="16" Height="16" />
+                        <Image Source="Assets/Icons/download.svg" Width="16" Height="16" />
                         <TextBlock Text="Export" />
                     </StackPanel>
                 </Button>
@@ -85,7 +85,7 @@
                             Background="#15171B"
                             BorderBrush="#2A2D33"
                             BorderThickness="1">
-                            <Image Source="Assets/Icons/open.svg" Width="22" Height="22" />
+                            <Image Source="Assets/Icons/folder-open.svg" Width="22" Height="22" />
                         </Border>
                         <TextBlock Text="Drop a video here" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
                         <TextBlock Text="or open a local file" Foreground="#858A93" FontSize="12" HorizontalAlignment="Center" />
@@ -100,8 +100,8 @@
             Background="#111216"
             BorderBrush="#24272D"
             BorderThickness="0,1,0,0"
-            Padding="16,12,16,14">
-            <Grid RowSpacing="10">
+            Padding="16,10,16,14">
+            <Grid RowSpacing="8">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -117,13 +117,13 @@
 
                     <StackPanel Orientation="Horizontal" Spacing="3">
                         <Button x:Name="FrameBackButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Previous frame">
-                            <Image Source="Assets/Icons/step-back.svg" Width="17" Height="17" />
+                            <Image Source="Assets/Icons/skip-back.svg" Width="17" Height="17" />
                         </Button>
                         <Button x:Name="PlayButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Play / pause (Space)">
                             <Image x:Name="PlayButtonIcon" Source="Assets/Icons/play.svg" Width="18" Height="18" />
                         </Button>
                         <Button x:Name="FrameForwardButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Next frame">
-                            <Image Source="Assets/Icons/step-forward.svg" Width="17" Height="17" />
+                            <Image Source="Assets/Icons/skip-forward.svg" Width="17" Height="17" />
                         </Button>
                     </StackPanel>
 
@@ -138,7 +138,7 @@
                         VerticalAlignment="Center" />
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Image Source="Assets/Icons/volume.svg" Width="16" Height="16" />
+                        <Image Source="Assets/Icons/volume-2.svg" Width="16" Height="16" />
                         <Slider
                             x:Name="VolumeSlider"
                             Width="120"
@@ -149,10 +149,36 @@
                     </StackPanel>
                 </Grid>
 
-                <controls:TimelineControl
-                    x:Name="Timeline"
-                    Grid.Row="1"
-                    IsEnabled="False" />
+                <Grid Grid.Row="1" RowSpacing="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Text="TIMELINE"
+                            FontSize="10"
+                            FontWeight="SemiBold"
+                            Foreground="#8A909A"
+                            VerticalAlignment="Center" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Text="Drag clip edges to trim  ·  Drag clips to reorder  ·  S to split"
+                            FontSize="10"
+                            Foreground="#686E78"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center" />
+                    </Grid>
+
+                    <controls:TimelineControl
+                        x:Name="Timeline"
+                        Grid.Row="1"
+                        IsEnabled="False" />
+                </Grid>
 
                 <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
@@ -162,27 +188,29 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Orientation="Horizontal" Spacing="4">
-                        <Button x:Name="MarkInButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Mark in (I)">
-                            <Image Source="Assets/Icons/mark-in.svg" Width="18" Height="18" />
+                        <Button x:Name="SplitButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Split at playhead (S)" IsEnabled="False">
+                            <Image Source="Assets/Icons/scissors.svg" Width="18" Height="18" />
                         </Button>
-                        <Button x:Name="MarkOutButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Mark out (O)">
-                            <Image Source="Assets/Icons/mark-out.svg" Width="18" Height="18" />
-                        </Button>
-                        <Button x:Name="CutButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Remove marked range (Delete)" IsEnabled="False">
-                            <Image Source="Assets/Icons/cut.svg" Width="18" Height="18" />
+                        <Button x:Name="DeleteButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Delete selected clip (Delete)" IsEnabled="False">
+                            <Image Source="Assets/Icons/trash.svg" Width="18" Height="18" />
                         </Button>
                         <Button x:Name="UndoButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Undo (Ctrl+Z)" IsEnabled="False">
-                            <Image Source="Assets/Icons/undo.svg" Width="18" Height="18" />
+                            <Image Source="Assets/Icons/undo-2.svg" Width="18" Height="18" />
                         </Button>
                     </StackPanel>
 
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                        <TextBlock x:Name="TrimStartText" Text="IN  00:00.000" FontFamily="Cascadia Mono" FontSize="11" Foreground="#858A93" />
-                        <TextBlock Text="•" Foreground="#4E535C" />
-                        <TextBlock x:Name="TrimEndText" Text="OUT  00:00.000" FontFamily="Cascadia Mono" FontSize="11" Foreground="#858A93" />
-                    </StackPanel>
+                    <TextBlock
+                        x:Name="SelectedClipText"
+                        Grid.Column="1"
+                        Text="No clip selected"
+                        FontFamily="Cascadia Mono"
+                        FontSize="10"
+                        Foreground="#858A93"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center" />
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="ClipCountText" Text="0 clips" FontSize="10" Foreground="#686E78" />
                         <ProgressBar x:Name="ExportProgress" Width="130" Height="3" Minimum="0" Maximum="1" Value="0" Visibility="Collapsed" />
                         <TextBlock x:Name="StatusText" Text="Ready" FontSize="11" Foreground="#777C85" />
                     </StackPanel>
