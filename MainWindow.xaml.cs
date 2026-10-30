@@ -27,6 +27,24 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // Wire UI events in code. This avoids WinUI runtime XAML event-binding failures
+        // in unpackaged/self-contained builds while keeping the XAML purely declarative.
+        RootGrid.DragOver += RootGrid_DragOver;
+        RootGrid.Drop += RootGrid_Drop;
+        RootGrid.KeyDown += RootGrid_KeyDown;
+        OpenButton.Click += OpenButton_Click;
+        EmptyOpenButton.Click += OpenButton_Click;
+        ExportButton.Click += ExportButton_Click;
+        FrameBackButton.Click += FrameBackButton_Click;
+        PlayButton.Click += PlayButton_Click;
+        FrameForwardButton.Click += FrameForwardButton_Click;
+        VolumeSlider.ValueChanged += VolumeSlider_ValueChanged;
+        MarkInButton.Click += MarkInButton_Click;
+        MarkOutButton.Click += MarkOutButton_Click;
+        CutButton.Click += CutButton_Click;
+        UndoButton.Click += UndoButton_Click;
+
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 760));

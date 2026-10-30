@@ -1,9 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
 <Window
     x:Class="Slice.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:Slice"
     xmlns:controls="using:Slice.Controls"
-    Title="Slice">
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="Slice"
+    mc:Ignorable="d">
 
     <Window.SystemBackdrop>
         <MicaBackdrop Kind="BaseAlt" />
@@ -13,9 +18,6 @@
         x:Name="RootGrid"
         RequestedTheme="Dark"
         AllowDrop="True"
-        DragOver="RootGrid_DragOver"
-        Drop="RootGrid_Drop"
-        KeyDown="RootGrid_KeyDown"
         Background="#E80B0C0F">
         <Grid.RowDefinitions>
             <RowDefinition Height="48" />
@@ -41,13 +43,12 @@
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                <Button Style="{StaticResource IconButtonStyle}" Click="OpenButton_Click" ToolTipService.ToolTip="Open video (Ctrl+O)">
+                <Button x:Name="OpenButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Open video (Ctrl+O)">
                     <Image Source="Assets/Icons/open.svg" Width="18" Height="18" />
                 </Button>
                 <Button
                     x:Name="ExportButton"
                     Style="{StaticResource PrimaryButtonStyle}"
-                    Click="ExportButton_Click"
                     IsEnabled="False">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Image Source="Assets/Icons/export.svg" Width="16" Height="16" />
@@ -88,7 +89,7 @@
                         </Border>
                         <TextBlock Text="Drop a video here" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
                         <TextBlock Text="or open a local file" Foreground="#858A93" FontSize="12" HorizontalAlignment="Center" />
-                        <Button Content="Open video" HorizontalAlignment="Center" Click="OpenButton_Click" />
+                        <Button x:Name="EmptyOpenButton" Content="Open video" HorizontalAlignment="Center" />
                     </StackPanel>
                 </Grid>
             </Border>
@@ -115,13 +116,13 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Orientation="Horizontal" Spacing="3">
-                        <Button Style="{StaticResource IconButtonStyle}" Click="FrameBackButton_Click" ToolTipService.ToolTip="Previous frame">
+                        <Button x:Name="FrameBackButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Previous frame">
                             <Image Source="Assets/Icons/step-back.svg" Width="17" Height="17" />
                         </Button>
-                        <Button x:Name="PlayButton" Style="{StaticResource IconButtonStyle}" Click="PlayButton_Click" ToolTipService.ToolTip="Play / pause (Space)">
+                        <Button x:Name="PlayButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Play / pause (Space)">
                             <Image x:Name="PlayButtonIcon" Source="Assets/Icons/play.svg" Width="18" Height="18" />
                         </Button>
-                        <Button Style="{StaticResource IconButtonStyle}" Click="FrameForwardButton_Click" ToolTipService.ToolTip="Next frame">
+                        <Button x:Name="FrameForwardButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Next frame">
                             <Image Source="Assets/Icons/step-forward.svg" Width="17" Height="17" />
                         </Button>
                     </StackPanel>
@@ -143,8 +144,7 @@
                             Width="120"
                             Minimum="0"
                             Maximum="100"
-                            Value="100"
-                            ValueChanged="VolumeSlider_ValueChanged" />
+                            Value="100" />
                         <TextBlock x:Name="VolumeText" Text="100%" Width="40" FontSize="12" Foreground="#A2A7AF" VerticalAlignment="Center" />
                     </StackPanel>
                 </Grid>
@@ -162,16 +162,16 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Orientation="Horizontal" Spacing="4">
-                        <Button Style="{StaticResource IconButtonStyle}" Click="MarkInButton_Click" ToolTipService.ToolTip="Mark in (I)">
+                        <Button x:Name="MarkInButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Mark in (I)">
                             <Image Source="Assets/Icons/mark-in.svg" Width="18" Height="18" />
                         </Button>
-                        <Button Style="{StaticResource IconButtonStyle}" Click="MarkOutButton_Click" ToolTipService.ToolTip="Mark out (O)">
+                        <Button x:Name="MarkOutButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Mark out (O)">
                             <Image Source="Assets/Icons/mark-out.svg" Width="18" Height="18" />
                         </Button>
-                        <Button x:Name="CutButton" Style="{StaticResource IconButtonStyle}" Click="CutButton_Click" ToolTipService.ToolTip="Remove marked range (Delete)" IsEnabled="False">
+                        <Button x:Name="CutButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Remove marked range (Delete)" IsEnabled="False">
                             <Image Source="Assets/Icons/cut.svg" Width="18" Height="18" />
                         </Button>
-                        <Button x:Name="UndoButton" Style="{StaticResource IconButtonStyle}" Click="UndoButton_Click" ToolTipService.ToolTip="Undo (Ctrl+Z)" IsEnabled="False">
+                        <Button x:Name="UndoButton" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="Undo (Ctrl+Z)" IsEnabled="False">
                             <Image Source="Assets/Icons/undo.svg" Width="18" Height="18" />
                         </Button>
                     </StackPanel>

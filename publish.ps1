@@ -4,6 +4,8 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $publishDir = Join-Path $root 'artifacts\portable\Slice-win-x64'
 $zipPath = Join-Path $root 'artifacts\portable\Slice-win-x64.zip'
 
+# Always rebuild WinUI/XAML generated artifacts from a clean state.
+Remove-Item (Join-Path $root 'bin'), (Join-Path $root 'obj') -Recurse -Force -ErrorAction SilentlyContinue
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 
