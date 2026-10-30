@@ -12,15 +12,16 @@ namespace Slice.Controls;
 
 public sealed partial class TimelineControl : UserControl
 {
-    private const double TrackPadding = 8;
-    private const double ClipGap = 4;
-    private const double HandleHitWidth = 10;
+    private const double TrackPadding = 4;
+    private const double ClipGap = 1;
+    private const double HandleHitWidth = 7;
     private const double DragThreshold = 6;
 
     private readonly List<ClipLayout> _layouts = [];
     private EditSession? _session;
     private double _playhead;
     private Rectangle? _playheadMarker;
+    private Polygon? _rulerPlayheadHead;
     private DragMode _dragMode;
     private uint _pointerId;
     private double _pressX;
@@ -41,7 +42,10 @@ public sealed partial class TimelineControl : UserControl
         Surface.PointerCanceled += Surface_PointerCanceled;
         Surface.SizeChanged += (_, _) => Redraw();
         Ruler.SizeChanged += (_, _) => Redraw();
+        ActualThemeChanged += (_, _) => Redraw();
     }
+
+    public string MediaName { get; set; } = "Clip";
 
     public event EventHandler<double>? SeekRequested;
     public event EventHandler? EditStarted;
@@ -210,6 +214,7 @@ public sealed partial class TimelineControl : UserControl
         Ruler.Children.Clear();
         _layouts.Clear();
         _playheadMarker = null;
+        _rulerPlayheadHead = null;
 
         if (_session is null || _session.Clips.Count == 0 || _session.TimelineDuration <= 0 || Surface.ActualWidth <= 1)
             return;
@@ -217,30 +222,22 @@ public sealed partial class TimelineControl : UserControl
         BuildLayouts();
         DrawRuler();
 
+        var trackHeight = Math.Max(1, Surface.ActualHeight / 2d);
+        var videoColor = IsLightTheme
+            ? Color.FromArgb(255, 70, 139, 177)
+            : Color.FromArgb(255, 40, 101, 137);
+        var audioColor = IsLightTheme
+            ? Color.FromArgb(255, 72, 145, 105)
+            : Color.FromArgb(255, 37, 112, 78);
+
         foreach (var layout in _layouts)
         {
             var selected = layout.Index == _session.SelectedIndex;
             var clip = _session.Clips[layout.Index];
+            var label = $"{MediaName}  [{layout.Index + 1}]";
 
-            var card = new Border
-            {
-                Width = layout.Width,
-                Height = Math.Max(1, Surface.ActualHeight - 12),
-                CornerRadius = new CornerRadius(6),
-                Background = new SolidColorBrush(selected
-                    ? Color.FromArgb(255, 38, 72, 103)
-                    : Color.FromArgb(255, 31, 34, 40)),
-                BorderBrush = new SolidColorBrush(selected
-                    ? Color.FromArgb(255, 125, 196, 255)
-                    : Color.FromArgb(255, 63, 68, 78)),
-                BorderThickness = new Thickness(selected ? 2 : 1),
-                IsHitTestVisible = false,
-                Child = CreateClipLabel(layout.Index, clip, layout.Width)
-            };
-
-            Canvas.SetLeft(card, layout.X);
-            Canvas.SetTop(card, 6);
-            Surface.Children.Add(card);
+            DrawClipRow(layout, clip, selected, 2, Math.Max(1, trackHeight - 4), videoColor, label);
+            DrawClipRow(layout, clip, selected, trackHeight + 2, Math.Max(1, trackHeight - 4), audioColor, label);
 
             if (selected)
             {
@@ -249,67 +246,122 @@ public sealed partial class TimelineControl : UserControl
             }
         }
 
+        var accent = AccentColor;
         _playheadMarker = new Rectangle
         {
-            Width = 2,
+            Width = 1,
             Height = Surface.ActualHeight,
-            RadiusX = 1,
-            RadiusY = 1,
-            Fill = new SolidColorBrush(Colors.White),
+            Fill = new SolidColorBrush(accent),
             IsHitTestVisible = false
         };
         Canvas.SetTop(_playheadMarker, 0);
-        Canvas.SetZIndex(_playheadMarker, 20);
+        Canvas.SetZIndex(_playheadMarker, 30);
         Surface.Children.Add(_playheadMarker);
+
+        _rulerPlayheadHead = new Polygon
+        {
+            Points = new PointCollection
+            {
+                new Windows.Foundation.Point(0, 0),
+                new Windows.Foundation.Point(8, 0),
+                new Windows.Foundation.Point(4, 5)
+            },
+            Fill = new SolidColorBrush(accent),
+            IsHitTestVisible = false
+        };
+        Canvas.SetTop(_rulerPlayheadHead, 19);
+        Canvas.SetZIndex(_rulerPlayheadHead, 30);
+        Ruler.Children.Add(_rulerPlayheadHead);
         PositionPlayhead();
     }
 
-    private FrameworkElement CreateClipLabel(int index, ClipSegment clip, double width)
+    private void DrawClipRow(
+        ClipLayout layout,
+        ClipSegment clip,
+        bool selected,
+        double top,
+        double height,
+        Color fill,
+        string label)
     {
-        var panel = new StackPanel
+        var card = new Border
         {
-            Margin = new Thickness(12, 8, 8, 6),
-            Spacing = 2,
-            IsHitTestVisible = false
+            Width = layout.Width,
+            Height = height,
+            CornerRadius = new CornerRadius(1),
+            Background = new SolidColorBrush(fill),
+            BorderBrush = new SolidColorBrush(selected ? SelectionColor : BorderColor),
+            BorderThickness = new Thickness(selected ? 2 : 1),
+            IsHitTestVisible = false,
+            Child = CreateClipLabel(label, clip, layout.Width)
         };
 
-        panel.Children.Add(new TextBlock
+        Canvas.SetLeft(card, layout.X);
+        Canvas.SetTop(card, top);
+        Canvas.SetZIndex(card, selected ? 5 : 1);
+        Surface.Children.Add(card);
+    }
+
+    private FrameworkElement CreateClipLabel(string label, ClipSegment clip, double width)
+    {
+        var grid = new Grid
         {
-            Text = $"Clip {index + 1}",
-            FontSize = 11,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Color.FromArgb(255, 238, 241, 245)),
-            TextTrimming = TextTrimming.CharacterEllipsis
+            Margin = new Thickness(5, 1, 4, 0),
+            IsHitTestVisible = false
+        };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        if (width >= 110)
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        grid.Children.Add(new TextBlock
+        {
+            Text = width < 32 ? string.Empty : label,
+            FontFamily = new FontFamily("Segoe UI"),
+            FontSize = 9,
+            Foreground = new SolidColorBrush(Colors.White),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Top
         });
 
-        if (width >= 72)
+        if (width >= 110)
         {
-            panel.Children.Add(new TextBlock
+            var duration = new TextBlock
             {
                 Text = FormatTime(clip.Length),
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 161, 168, 179))
-            });
+                FontFamily = new FontFamily("Segoe UI"),
+                FontSize = 8,
+                Foreground = new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)),
+                Margin = new Thickness(6, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Top
+            };
+            Grid.SetColumn(duration, 1);
+            grid.Children.Add(duration);
         }
 
-        return panel;
+        return grid;
     }
 
     private void AddTrimHandle(double x, double height)
     {
-        var handle = new Border
+        var handle = new Rectangle
         {
-            Width = 7,
-            Height = Math.Max(18, height - 28),
-            CornerRadius = new CornerRadius(3.5),
-            Background = new SolidColorBrush(Color.FromArgb(255, 187, 222, 255)),
+            Width = 3,
+            Height = Math.Max(1, height),
+            Fill = new SolidColorBrush(SelectionColor),
             IsHitTestVisible = false
         };
-        Canvas.SetLeft(handle, x - 3.5);
-        Canvas.SetTop(handle, (height - handle.Height) / 2);
-        Canvas.SetZIndex(handle, 10);
+        Canvas.SetLeft(handle, x - 1.5);
+        Canvas.SetTop(handle, 0);
+        Canvas.SetZIndex(handle, 20);
         Surface.Children.Add(handle);
     }
+
+    private bool IsLightTheme => ActualTheme == ElementTheme.Light;
+    private Color AccentColor => IsLightTheme ? Color.FromArgb(255, 2, 101, 220) : Color.FromArgb(255, 94, 170, 247);
+    private Color SelectionColor => IsLightTheme ? Color.FromArgb(255, 2, 101, 220) : Color.FromArgb(255, 114, 183, 249);
+    private Color BorderColor => IsLightTheme ? Color.FromArgb(255, 190, 190, 190) : Color.FromArgb(255, 35, 35, 35);
+    private Color RulerTextColor => IsLightTheme ? Color.FromArgb(255, 85, 85, 85) : Color.FromArgb(255, 167, 167, 167);
+    private Color RulerTickColor => IsLightTheme ? Color.FromArgb(255, 170, 170, 170) : Color.FromArgb(255, 74, 74, 74);
 
     private void BuildLayouts()
     {
@@ -339,7 +391,7 @@ public sealed partial class TimelineControl : UserControl
         if (_session is null || _layouts.Count == 0)
             return;
 
-        const int divisions = 5;
+        var divisions = Math.Clamp((int)(Ruler.ActualWidth / 130), 4, 10);
         for (var i = 0; i <= divisions; i++)
         {
             var time = _session.TimelineDuration * i / divisions;
@@ -348,24 +400,24 @@ public sealed partial class TimelineControl : UserControl
             var tick = new Rectangle
             {
                 Width = 1,
-                Height = 6,
-                Fill = new SolidColorBrush(Color.FromArgb(255, 76, 82, 92)),
+                Height = 5,
+                Fill = new SolidColorBrush(RulerTickColor),
                 IsHitTestVisible = false
             };
             Canvas.SetLeft(tick, x);
-            Canvas.SetTop(tick, 18);
+            Canvas.SetTop(tick, 20);
             Ruler.Children.Add(tick);
 
             var label = new TextBlock
             {
                 Text = FormatTime(time),
-                FontSize = 9,
-                FontFamily = new FontFamily("Cascadia Mono"),
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 119, 125, 136)),
+                FontSize = 8,
+                FontFamily = new FontFamily("Segoe UI"),
+                Foreground = new SolidColorBrush(RulerTextColor),
                 IsHitTestVisible = false
             };
-            Canvas.SetLeft(label, Math.Max(0, x - 18));
-            Canvas.SetTop(label, 1);
+            Canvas.SetLeft(label, Math.Max(2, x + 3));
+            Canvas.SetTop(label, 3);
             Ruler.Children.Add(label);
         }
     }
@@ -419,7 +471,9 @@ public sealed partial class TimelineControl : UserControl
             return;
 
         var x = TimelineToX(Math.Clamp(_playhead, 0, _session.TimelineDuration));
-        Canvas.SetLeft(_playheadMarker, x - 1);
+        Canvas.SetLeft(_playheadMarker, x - 0.5);
+        if (_rulerPlayheadHead is not null)
+            Canvas.SetLeft(_rulerPlayheadHead, x - 4);
     }
 
     private static string FormatTime(double seconds)

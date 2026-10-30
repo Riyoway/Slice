@@ -23,6 +23,7 @@ public sealed partial class MainWindow : Window
     private StorageFile? _sourceFile;
     private MediaInfo? _mediaInfo;
     private bool _isExporting;
+    private bool _isLightTheme;
     private double _timelinePosition;
     private int _activeClipIndex = -1;
 
@@ -35,6 +36,7 @@ public sealed partial class MainWindow : Window
         RootGrid.KeyDown += RootGrid_KeyDown;
         OpenButton.Click += OpenButton_Click;
         EmptyOpenButton.Click += OpenButton_Click;
+        ThemeToggleButton.Click += ThemeToggleButton_Click;
         ExportButton.Click += ExportButton_Click;
         FrameBackButton.Click += FrameBackButton_Click;
         PlayButton.Click += PlayButton_Click;
@@ -46,8 +48,9 @@ public sealed partial class MainWindow : Window
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 790));
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(1440, 900));
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
+        ApplyTheme(light: false);
 
         PlayerElement.SetMediaPlayer(new MediaPlayer
         {
@@ -68,6 +71,33 @@ public sealed partial class MainWindow : Window
         _uiTimer.Tick += UiTimer_Tick;
         _uiTimer.Start();
         Closed += (_, _) => PlayerElement.MediaPlayer.Dispose();
+    }
+
+    private void ThemeToggleButton_Click(object sender, RoutedEventArgs e) => ApplyTheme(!_isLightTheme);
+
+    private void ApplyTheme(bool light)
+    {
+        _isLightTheme = light;
+        RootGrid.RequestedTheme = light ? ElementTheme.Light : ElementTheme.Dark;
+        ThemeToggleIcon.Source = new Microsoft.UI.Xaml.Media.Imaging.SvgImageSource(
+            new Uri(light ? "ms-appx:///Assets/Icons/moon.svg" : "ms-appx:///Assets/Icons/sun.svg"));
+
+        var titleBar = AppWindow.TitleBar;
+        titleBar.ButtonForegroundColor = light
+            ? Windows.UI.Color.FromArgb(255, 34, 34, 34)
+            : Windows.UI.Color.FromArgb(255, 232, 232, 232);
+        titleBar.ButtonHoverForegroundColor = titleBar.ButtonForegroundColor;
+        titleBar.ButtonPressedForegroundColor = titleBar.ButtonForegroundColor;
+        titleBar.ButtonBackgroundColor = Windows.UI.Color.FromArgb(0, 0, 0, 0);
+        titleBar.ButtonInactiveBackgroundColor = Windows.UI.Color.FromArgb(0, 0, 0, 0);
+        titleBar.ButtonHoverBackgroundColor = light
+            ? Windows.UI.Color.FromArgb(255, 222, 222, 222)
+            : Windows.UI.Color.FromArgb(255, 52, 52, 52);
+        titleBar.ButtonPressedBackgroundColor = light
+            ? Windows.UI.Color.FromArgb(255, 207, 207, 207)
+            : Windows.UI.Color.FromArgb(255, 66, 66, 66);
+
+        Timeline.Refresh();
     }
 
     private async void OpenButton_Click(object sender, RoutedEventArgs e) => await OpenFileAsync();
@@ -126,11 +156,16 @@ public sealed partial class MainWindow : Window
             _activeClipIndex = -1;
 
             _session.Reset(_mediaInfo is { Duration: > 0 } ? _mediaInfo.Duration : 0);
+            Timeline.MediaName = file.Name;
             Timeline.Refresh();
             Timeline.Playhead = 0;
 
             PlayerElement.MediaPlayer.Source = MediaSource.CreateFromStorageFile(file);
             FileNameText.Text = file.Name;
+            ProjectClipNameText.Text = file.Name;
+            ProjectDurationText.Text = FormatTime(_session.Duration);
+            ProjectClipRow.Visibility = Visibility.Visible;
+            ProjectEmptyState.Visibility = Visibility.Collapsed;
             EmptyState.Visibility = Visibility.Collapsed;
             Timeline.IsEnabled = true;
             ExportButton.IsEnabled = true;
@@ -157,6 +192,7 @@ public sealed partial class MainWindow : Window
             _timelinePosition = 0;
             _activeClipIndex = _session.Clips.Count > 0 ? 0 : -1;
             Timeline.Playhead = 0;
+            ProjectDurationText.Text = FormatTime(_session.Duration);
             Timeline.Refresh();
             RefreshUi();
         });
@@ -470,12 +506,15 @@ public sealed partial class MainWindow : Window
 
         if (_session.SelectedClip is { } clip && _session.SelectedIndex >= 0)
         {
-            SelectedClipText.Text =
-                $"Clip {_session.SelectedIndex + 1}  ·  {FormatTime(clip.SourceStart)} — {FormatTime(clip.SourceEnd)}";
+            SelectedClipText.Text = $"Clip {_session.SelectedIndex + 1}";
+            PropertyInText.Text = FormatTimecode(clip.SourceStart);
+            PropertyOutText.Text = FormatTimecode(clip.SourceEnd);
         }
         else
         {
             SelectedClipText.Text = "No clip selected";
+            PropertyInText.Text = "--:--:--:--";
+            PropertyOutText.Text = "--:--:--:--";
         }
 
         Timeline.Refresh();
@@ -485,7 +524,8 @@ public sealed partial class MainWindow : Window
 
     private void UpdateTimeText()
     {
-        TimeText.Text = $"{FormatTime(_timelinePosition)}  /  {FormatTime(_session.TimelineDuration)}";
+        TimeText.Text = FormatTimecode(_timelinePosition);
+        DurationText.Text = FormatTimecode(_session.TimelineDuration);
     }
 
     private void UpdateActionState()
@@ -499,8 +539,15 @@ public sealed partial class MainWindow : Window
     {
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
 
-        if (ctrl && e.Key == VirtualKey.O)
+        if (ctrl && shift && e.Key == VirtualKey.L)
+        {
+            ApplyTheme(!_isLightTheme);
+            e.Handled = true;
+        }
+        else if (ctrl && e.Key == VirtualKey.O)
         {
             _ = OpenFileAsync();
             e.Handled = true;
@@ -579,13 +626,26 @@ public sealed partial class MainWindow : Window
         await dialog.ShowAsync();
     }
 
+    private string FormatTimecode(double seconds)
+    {
+        if (!double.IsFinite(seconds) || seconds < 0)
+            seconds = 0;
+
+        var fps = _mediaInfo?.FrameRate is > 0 ? _mediaInfo.FrameRate : 30d;
+        var nominalFps = Math.Max(1, (int)Math.Round(fps));
+        var wholeSeconds = (long)Math.Floor(seconds);
+        var frames = Math.Clamp((int)Math.Floor((seconds - wholeSeconds) * fps), 0, nominalFps - 1);
+        var time = TimeSpan.FromSeconds(wholeSeconds);
+        return $"{(int)time.TotalHours:00}:{time.Minutes:00}:{time.Seconds:00}:{frames:00}";
+    }
+
     private static string FormatTime(double seconds)
     {
         if (!double.IsFinite(seconds) || seconds < 0)
             seconds = 0;
         var time = TimeSpan.FromSeconds(seconds);
         return time.TotalHours >= 1
-            ? $"{(int)time.TotalHours:00}:{time.Minutes:00}:{time.Seconds:00}.{time.Milliseconds:000}"
-            : $"{time.Minutes:00}:{time.Seconds:00}.{time.Milliseconds:000}";
+            ? $"{(int)time.TotalHours:00}:{time.Minutes:00}:{time.Seconds:00}"
+            : $"{time.Minutes:00}:{time.Seconds:00}";
     }
 }

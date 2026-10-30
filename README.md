@@ -5,7 +5,7 @@
 <h1 align="center">Slice</h1>
 
 <p align="center">
-  A lightweight Windows video trimmer with a focused single-track timeline and flexible export.
+  A lightweight Windows video trimmer with a compact professional editing workspace and flexible export.
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 
 ## What is Slice?
 
-Slice is intentionally focused. It gives you the timeline interactions you expect for quick video edits without layers, effects, accounts, cloud features, or a large editing workspace.
+Slice is intentionally focused. It gives you familiar timeline interactions and a professional panel-based workspace without layers, effects, accounts, cloud features, or full NLE complexity.
 
 Open a video, split it into clips, trim clip edges, drag clips into a new order, remove clips, adjust volume, preview the sequence, and export.
 
@@ -25,7 +25,8 @@ Open a video, split it into clips, trim clip edges, drag clips into a new order,
 
 - Native Windows video preview
 - Drag and drop video opening
-- Single-track clip timeline
+- Linked V1/A1 clip timeline with a compact panel-based workspace
+- Dark and light interface themes (`Ctrl + Shift + L`)
 - Split at the playhead
 - Direct per-clip edge trimming
 - Drag-and-drop clip reordering

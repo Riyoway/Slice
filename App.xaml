@@ -9,23 +9,90 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
-            <SolidColorBrush x:Key="SlicePanelBrush" Color="#101114" />
-            <SolidColorBrush x:Key="SlicePanelRaisedBrush" Color="#17191D" />
-            <SolidColorBrush x:Key="SliceBorderBrush" Color="#2A2D33" />
-            <SolidColorBrush x:Key="SliceMutedBrush" Color="#9A9FA8" />
-            <SolidColorBrush x:Key="SliceDangerBrush" Color="#D94F5C" />
+
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="PrBaseBrush" Color="#111111" />
+                    <SolidColorBrush x:Key="PrLayer1Brush" Color="#1D1D1D" />
+                    <SolidColorBrush x:Key="PrLayer2Brush" Color="#232323" />
+                    <SolidColorBrush x:Key="PrLayer3Brush" Color="#2C2C2C" />
+                    <SolidColorBrush x:Key="PrBorderBrush" Color="#343434" />
+                    <SolidColorBrush x:Key="PrBorderStrongBrush" Color="#484848" />
+                    <SolidColorBrush x:Key="PrTextBrush" Color="#E8E8E8" />
+                    <SolidColorBrush x:Key="PrTextMutedBrush" Color="#A7A7A7" />
+                    <SolidColorBrush x:Key="PrTextDimBrush" Color="#747474" />
+                    <SolidColorBrush x:Key="PrMonitorBrush" Color="#050505" />
+                    <SolidColorBrush x:Key="PrAccentBrush" Color="#5EAAF7" />
+                    <SolidColorBrush x:Key="PrAccentStrongBrush" Color="#72B7F9" />
+                    <SolidColorBrush x:Key="PrVideoClipBrush" Color="#2B6F96" />
+                    <SolidColorBrush x:Key="PrAudioClipBrush" Color="#23714F" />
+                    <SolidColorBrush x:Key="PrTrackHeaderBrush" Color="#1A1A1A" />
+                    <SolidColorBrush x:Key="PrSelectionBrush" Color="#9BCBFA" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="PrBaseBrush" Color="#E6E6E6" />
+                    <SolidColorBrush x:Key="PrLayer1Brush" Color="#F0F0F0" />
+                    <SolidColorBrush x:Key="PrLayer2Brush" Color="#F8F8F8" />
+                    <SolidColorBrush x:Key="PrLayer3Brush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="PrBorderBrush" Color="#D1D1D1" />
+                    <SolidColorBrush x:Key="PrBorderStrongBrush" Color="#B6B6B6" />
+                    <SolidColorBrush x:Key="PrTextBrush" Color="#222222" />
+                    <SolidColorBrush x:Key="PrTextMutedBrush" Color="#555555" />
+                    <SolidColorBrush x:Key="PrTextDimBrush" Color="#767676" />
+                    <SolidColorBrush x:Key="PrMonitorBrush" Color="#111111" />
+                    <SolidColorBrush x:Key="PrAccentBrush" Color="#0265DC" />
+                    <SolidColorBrush x:Key="PrAccentStrongBrush" Color="#0054B6" />
+                    <SolidColorBrush x:Key="PrVideoClipBrush" Color="#5A9FC5" />
+                    <SolidColorBrush x:Key="PrAudioClipBrush" Color="#4E9B74" />
+                    <SolidColorBrush x:Key="PrTrackHeaderBrush" Color="#EBEBEB" />
+                    <SolidColorBrush x:Key="PrSelectionBrush" Color="#0265DC" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <Style TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="Foreground" Value="{ThemeResource PrTextBrush}" />
+            </Style>
+
+            <Style x:Key="PanelHeaderTextStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource PrTextBrush}" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
             <Style x:Key="IconButtonStyle" TargetType="Button">
-                <Setter Property="Width" Value="38" />
-                <Setter Property="Height" Value="38" />
-                <Setter Property="Padding" Value="9" />
-                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Width" Value="28" />
+                <Setter Property="Height" Value="26" />
+                <Setter Property="Padding" Value="5" />
+                <Setter Property="CornerRadius" Value="2" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
             </Style>
+
+            <Style x:Key="ToolbarButtonStyle" TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                <Setter Property="Width" Value="30" />
+                <Setter Property="Height" Value="28" />
+            </Style>
+
             <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-                <Setter Property="Height" Value="38" />
-                <Setter Property="Padding" Value="14,0" />
-                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Height" Value="28" />
+                <Setter Property="Padding" Value="12,0" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Background" Value="{ThemeResource PrAccentBrush}" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+
+            <Style x:Key="PanelBorderStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource PrLayer1Brush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource PrBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="0" />
             </Style>
         </ResourceDictionary>
     </Application.Resources>
